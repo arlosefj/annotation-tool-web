@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>智能标注工具-NKCS</title>
+	<script async src="js/cv.js"></script>
+	<script src="js/jquery.js"></script>
+	<script src="js/jquery.bigcolorpicker.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="js/draw.js"></script>
+	<script src="js/storage.js"></script>
+	<script src="js/main.js"></script>
+	<link rel="stylesheet" href="css/canvas.css" type="text/css" />
+	<link rel="stylesheet" href="css/jquery.bigcolorpicker.css" type="text/css" />
+    <!-- Bootstrap -->
+    <!-- <link href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"> -->
+</head>
+<body>
+<div id="draw">
+
+        <div class="spinner" id='spinner'></div>
+        <div class="emscripten" id="status">Downloading...</div>
+        <div class="emscripten">
+          <progress value="0" max="100" id="progress" hidden=1></progress>
+          <input type="file" id="input" name="file" style="visibility: hidden;" />
+        </div>
+
+		<div id="logo">智能标注工具</div>
+
+		<ul class="draw_controller cf">
+			<li class="normal pencil" title="铅笔"></li>
+			<li class="normal handwriting" title="涂鸦"></li>
+			<li class="normal line showLine" title="线条大小"></li>
+			<li class="normal showColor" id="chooseColor" title="选择颜色"></li>
+			<li class="normal rubber" title="橡皮擦"></li>
+			<li class="normal square" title="方形"></li>
+
+			<span>|</span>
+
+			<!-- <li class="normal drawLine" title="画直线"></li> -->
+			<!-- <li class="normal circle" title="圆"></li> -->
+			<!-- <li class="normal fill" title="填充前景"></li> -->
+
+			<!-- <span>|</span> -->
+
+			<li class="normal cancel" title="撤销上一个操作"></li>
+			<li class="normal next" title="重做上一个操作"></li>
+			<li class="normal clearContext" title="清屏"></li>
+
+			<span>|</span>
+
+			<li class="normal grabcut" title="Grabcut"></li>
+			<li class="normal matting" title="Close form matting"></li>
+			<li class="normal closing" title="闭合"></li>
+
+			<span>|</span>
+
+			<li class="normal save" title="保存"></li>
+			<li class="normal downloadImage" title="下载"><a href="#" download="picture.png" id="downloadImage_a"></a></li>
+			<li class="normal inputfile" title="打开文件"></li>
+		</ul>
+
+		<center>
+        <input type="range" min=0 max=255 value=127 step=1 onchange="threshChange(this.value)" />
+		</center>
+
+		<br/>
+        
+        <!-- <input type="file" id="input" name="file" /> -->
+        <!-- <button class="btn btn-default" style="width: 80px;background-color: white;" onclick="grabcut()">grabcut</button> -->
+        <!-- <button class="btn btn-default" style="width: 80px;background-color: white;" onclick="matting()">matting</button> -->
+        <!-- <button class="btn btn-default" style="width: 80px;background-color: white;" onclick="close()">close</button> -->
+
+		<div>
+			<div class="canvas_container">
+				<canvas id="canvas_img"></canvas>
+				<canvas id="canvas">
+					浏览器不支持
+				</canvas>
+				<canvas id="canvas_bak"></canvas>
+			</div>
+
+			<div class="canvas_container_right">
+				<canvas id="canvas2">
+					浏览器不支持
+				</canvas>
+			</div>
+
+			<div class="canvas_container_down">
+				<canvas id="canvas3">
+					浏览器不支持
+				</canvas>
+			</div>
+		</div>
+
+		<!-- <p class="tip">小提示：可以拖拽传入图片编辑哦~</p> -->
+
+		<div id="showHistory" class="cf">
+			<h2>绘画保存记录</h2>
+		</div>
+
+		<div id="line_size" class="line_size normal">
+			<ul>
+				<!-- <li><button data-value="0.5" class="small"><span style="width: 1px; height: 1px;"></span></button></li> -->
+				<li><button data-value="1" class="small current"><span style="width: 2px; height: 2px;"></span></button></li>
+				<!-- <li><button data-value="2" class="small"><span style="width: 3px; height: 3px;"></span></button></li> -->
+				<li><button data-value="3" class="small selected"><span style="width: 4px; height: 4px;"></span></button></li>
+				<!-- <li><button data-value="4"><span style="width: 6px; height: 6px;"></span></button></li> -->
+				<li><button data-value="5"><span style="width: 8px; height: 8px;"></span></button></li>
+				<li><button data-value="7"><span style="width: 10px; height: 10px;"></span></button></li>
+				<!-- <li><button data-value="9"><span style="width: 12px; height: 12px;"></span></button></li> -->
+				<!-- <li><button data-value="16"><span style="width: 16px; height: 16px;"></span></button></li> -->
+				<!-- <li><button data-value="32" class="large"><span style="width: 28px; height: 28px;"></span></button></li> -->
+			</ul>
+		</div>
+	</div>
+
+	<script  type='text/javascript'>
+		function getCV(){
+			var zip ;
+			var oReq = new XMLHttpRequest();
+			oReq.open("GET", "/opencvjs/examples/cv.js.gz", "application/	x-gzip");
+			oReq.responseType = "arraybuffer";
+	
+			oReq.onload = function (oEvent) {
+			  var arrayBuffer = oReq.response; // Note: not 	oReq.responseText
+			  if (arrayBuffer) {
+					zip = new Uint8Array(arrayBuffer);
+					console.log("decompressing script");
+					var decompressed = Zee.decompress(zip);
+					console.log("script decompressed");
+					var head= document.getElementsByTagName('head')[0];
+					var script= document.createElement('script');
+					script.type= 'text/javascript';
+					var length = decompressed.length ;
+					decoder = new TextDecoder();
+					script.text = decoder.decode(decompressed);
+					head.appendChild(script);
+					console.log("script added");
+			  }
+			};
+			oReq.send(null);
+		}
+		var statusElement = document.getElementById('status');
+		var progressElement = document.getElementById('progress');
+		var spinnerElement = document.getElementById('spinner');
+		var Module = {
+		preRun: [],
+		postRun: [],
+		print: (function() {
+		  var element = document.getElementById('output');
+		  if (element) element.value = ''; // clear browser cache
+		  return function(text) {
+		    text = Array.prototype.slice.call(arguments).join(' ');
+		    // These replacements are necessary if you render to raw HTML
+		    //text = text.replace(/&/g, "&amp;");
+		    //text = text.replace(/</g, "&lt;");
+		    //text = text.replace(/>/g, "&gt;");
+		    //text = text.replace('\n', '<br>', 'g');
+		    console.log(text);
+		    if (element) {
+		      element.value += text + "\n";
+		      element.scrollTop = element.scrollHeight; // focus on bottom
+		    }
+		  };
+		})(),
+		printErr: function(text) {
+		  text = Array.prototype.slice.call(arguments).join(' ');
+		  if (0) { // XXX disabled for safety typeof dump == 'function') {
+		    dump(text + '\n'); // fast, straight to the real console
+		  } else {
+		    console.error(text);
+		  }
+		},
+		canvas: (function() {
+		  var canvas = document.getElementById('resCanvas');
+		  return canvas;
+		})(),
+		setStatus: function(text) {
+		  if (!Module.setStatus.last) Module.setStatus.last = { time: Date.	now(), text: '' };
+		  if (text === Module.setStatus.text) return;
+		  var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+		  var now = Date.now();
+		  if (m && now - Date.now() < 30) return; // if this is a progress 	update, skip it if too soon
+		  if (m) {
+		    text = m[1];
+		    progressElement.value = parseInt(m[2])*100;
+		    progressElement.max = parseInt(m[4])*100;
+		    progressElement.hidden = false;
+		    spinnerElement.hidden = false;
+		  } else {
+		    progressElement.value = null;
+		    progressElement.max = null;
+		    progressElement.hidden = true;
+		    if (!text) spinnerElement.style.display = 'none';
+		  }
+		  statusElement.innerHTML = text;
+		},
+		totalDependencies: 0,
+			monitorRunDependencies: function(left) {
+			  this.totalDependencies = Math.max(this.totalDependencies, left	);
+			  Module.setStatus(left ? 'Preparing... (' + (this.	totalDependencies-left) + '/' + this.totalDependencies + '	)' : 'All downloads complete.');
+			}
+		};
+		Module.setStatus('Downloading...');
+			window.onerror = function(event) {
+			// TODO: do not warn on ok events like simulating an infinite 	loop or exitStatus
+			Module.setStatus('Exception thrown, see JavaScript console');
+			spinnerElement.style.display = 'none';
+			Module.setStatus = function(text) {
+			  if (text) Module.printErr('[post-exception status] ' + text);
+			};
+		};
+	</script>
+
+</body>
+</html>
